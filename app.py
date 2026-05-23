@@ -661,8 +661,9 @@ def bar_chart(df: pd.DataFrame, x: str, y: str, orientation: str = "v", color: s
 # -----------------------------------------------------------------------------
 st_autorefresh(interval=REFRESH_SECONDS * 1000, key="refresh")
 
-with st.expander("Optional: upload Excel manually for testing", expanded=False):
-    uploaded = st.file_uploader("Upload workbook", type=["xlsx", "xlsm", "xls"], label_visibility="collapsed")
+# Dashboard reads directly from the configured Excel source.
+# Manual upload section removed for manager-facing view.
+uploaded = None
 
 try:
     file_bytes, source_name = get_excel_bytes(uploaded)
