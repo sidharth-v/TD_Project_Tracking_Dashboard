@@ -95,260 +95,514 @@ MATERIAL_ORDER = ["Delivered", "Partially Delivered", "Ordered", "Not Ordered"]
 PRIORITY_ORDER = ["High", "Medium", "Low"]
 
 STATUS_COLORS = {
-    "Completed": "#16a34a",
-    "In Progress": "#0284c7",
-    "On Hold": "#f97316",
-    "Not Started": "#64748b",
-    "Cancelled": "#dc2626",
+    "Completed": "#10b981",
+    "In Progress": "#3b82f6",
+    "On Hold": "#f59e0b",
+    "Not Started": "#6b7280",
+    "Cancelled": "#ef4444",
 }
-PRIORITY_COLORS = {"High": "#dc2626", "Medium": "#d97706", "Low": "#16a34a"}
+PRIORITY_COLORS = {"High": "#ef4444", "Medium": "#f59e0b", "Low": "#10b981"}
 MATERIAL_COLORS = {
-    "Delivered": "#16a34a",
-    "Partially Delivered": "#ca8a04",
-    "Ordered": "#2563eb",
-    "Not Ordered": "#64748b",
+    "Delivered": "#10b981",
+    "Partially Delivered": "#f59e0b",
+    "Ordered": "#3b82f6",
+    "Not Ordered": "#6b7280",
 }
 
 # -----------------------------------------------------------------------------
-# STYLE - LIGHT, READABLE, MANAGER-FRIENDLY
+# STYLE - PREMIUM DARK INDUSTRIAL DASHBOARD
 # -----------------------------------------------------------------------------
 st.markdown(
     """
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
     :root {
-        --bg: #f5f7fb;
-        --card: #ffffff;
-        --text: #0f172a;
-        --muted: #64748b;
-        --border: #e2e8f0;
-        --blue: #2563eb;
-        --green: #16a34a;
-        --orange: #f97316;
-        --red: #dc2626;
-        --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        --bg:        #0a0c10;
+        --surface:   #111318;
+        --surface2:  #181c24;
+        --border:    rgba(255,255,255,0.07);
+        --border2:   rgba(255,255,255,0.12);
+        --text:      #f0f2f7;
+        --muted:     #6b7280;
+        --dim:       #9ca3af;
+
+        --blue:      #3b82f6;
+        --blue-glow: rgba(59,130,246,0.18);
+        --green:     #10b981;
+        --green-glow:rgba(16,185,129,0.18);
+        --amber:     #f59e0b;
+        --amber-glow:rgba(245,158,11,0.18);
+        --red:       #ef4444;
+        --red-glow:  rgba(239,68,68,0.18);
+        --purple:    #a78bfa;
+        --purple-glow:rgba(167,139,250,0.18);
+        --teal:      #2dd4bf;
+        --teal-glow: rgba(45,212,191,0.18);
+
+        --font-display: 'Syne', sans-serif;
+        --font-body:    'Outfit', sans-serif;
+        --font-mono:    'JetBrains Mono', monospace;
+
+        --radius-sm: 10px;
+        --radius:    16px;
+        --radius-lg: 22px;
+        --radius-xl: 28px;
+
+        --shadow-card: 0 0 0 1px rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.4);
+        --shadow-glow: 0 0 40px rgba(59,130,246,0.12);
     }
 
+    /* ─── GLOBAL ─── */
     .stApp {
         background: var(--bg);
         color: var(--text);
+        font-family: var(--font-body);
     }
 
     .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 3rem;
-        max-width: 1500px;
+        padding-top: 1.6rem !important;
+        padding-bottom: 4rem !important;
+        max-width: 1560px !important;
     }
 
-    h1, h2, h3, p, label, span, div {
-        color: var(--text);
-    }
+    h1,h2,h3,h4,h5,h6 { font-family: var(--font-display); color: var(--text); }
+    p, label, span, li { font-family: var(--font-body); color: var(--text); }
 
+    /* ─── SIDEBAR ─── */
     [data-testid="stSidebar"] {
-        background: #ffffff;
-        border-right: 1px solid var(--border);
+        background: var(--surface) !important;
+        border-right: 1px solid var(--border2) !important;
+        padding-top: 1rem;
     }
 
     [data-testid="stSidebar"] * {
         color: var(--text) !important;
+        font-family: var(--font-body) !important;
     }
 
-    [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"],
-    [data-testid="stSidebar"] .stTextInput input {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #0f172a !important;
+    [data-testid="stSidebar"] h3 {
+        font-family: var(--font-display) !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.02em !important;
+        color: var(--text) !important;
+        padding-bottom: 4px;
     }
 
-    .hero {
-        background: linear-gradient(135deg, #ffffff 0%, #eef4ff 100%);
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] .stTextInput input,
+    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] > div {
+        background: var(--surface2) !important;
+        border-color: var(--border2) !important;
+        border-radius: var(--radius-sm) !important;
+        color: var(--text) !important;
+    }
+
+    [data-testid="stSidebar"] .stRadio label {
+        background: var(--surface2);
         border: 1px solid var(--border);
-        border-radius: 26px;
-        padding: 28px 32px;
-        box-shadow: var(--shadow);
-        margin-bottom: 18px;
+        border-radius: 8px;
+        padding: 6px 12px;
+        margin: 2px 0;
+        transition: all .2s;
+        display: block;
+    }
+
+    [data-testid="stSidebar"] .stRadio label:hover {
+        border-color: var(--blue);
+        background: var(--blue-glow);
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+        position: relative;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: var(--radius-xl);
+        padding: 36px 40px;
+        box-shadow: var(--shadow-card);
+        margin-bottom: 24px;
+    }
+
+    .hero::before {
+        content: '';
+        position: absolute;
+        top: -60px; right: -60px;
+        width: 320px; height: 320px;
+        background: radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .hero::after {
+        content: '';
+        position: absolute;
+        bottom: -80px; left: 30%;
+        width: 400px; height: 200px;
+        background: radial-gradient(ellipse, rgba(167,139,250,0.07) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .hero-eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+        color: var(--blue);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .hero-eyebrow::before {
+        content: '';
+        display: inline-block;
+        width: 24px; height: 2px;
+        background: var(--blue);
+        border-radius: 2px;
     }
 
     .hero-title {
-        font-size: 42px;
-        font-weight: 850;
-        line-height: 1.1;
-        letter-spacing: -0.04em;
-        margin: 0;
-        color: #0f172a;
+        font-family: var(--font-display);
+        font-size: 48px;
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin: 0 0 8px;
+        color: var(--text);
+    }
+
+    .hero-title span {
+        background: linear-gradient(135deg, #60a5fa, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .hero-subtitle {
-        margin-top: 10px;
-        font-size: 16px;
-        color: #475569;
-        font-weight: 500;
+        font-size: 15px;
+        color: var(--muted);
+        font-weight: 400;
+        margin-top: 4px;
+        letter-spacing: 0.01em;
     }
 
     .source-row {
-        margin-top: 18px;
+        margin-top: 22px;
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
         align-items: center;
     }
 
     .pill {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
+        gap: 6px;
+        padding: 6px 14px;
         border-radius: 999px;
-        background: #f8fafc;
-        border: 1px solid #dbeafe;
-        color: #334155;
-        font-size: 13px;
-        font-weight: 650;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        color: var(--dim);
+        font-size: 12px;
+        font-weight: 500;
+        font-family: var(--font-mono);
+        letter-spacing: .02em;
     }
 
-    .pill.good { background: #ecfdf5; border-color: #bbf7d0; color: #166534; }
-    .pill.blue { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-    .pill.orange { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+    .pill.good  { background: var(--green-glow);  border-color: rgba(16,185,129,.3);  color: #34d399; }
+    .pill.blue  { background: var(--blue-glow);   border-color: rgba(59,130,246,.3);  color: #60a5fa; }
+    .pill.orange{ background: var(--amber-glow);  border-color: rgba(245,158,11,.3);  color: #fbbf24; }
 
+    /* ─── KPI CARDS ─── */
     .kpi-card {
-        background: var(--card);
+        position: relative;
+        overflow: hidden;
+        background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 18px 18px 16px;
-        box-shadow: var(--shadow);
-        min-height: 126px;
+        border-radius: var(--radius-lg);
+        padding: 22px 20px 18px;
+        box-shadow: var(--shadow-card);
+        min-height: 130px;
+        transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-card), 0 12px 40px rgba(0,0,0,0.5);
+        border-color: var(--border2);
+    }
+
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    }
+
+    .kpi-accent {
+        position: absolute;
+        top: 0; left: 0;
+        width: 4px; height: 100%;
+        border-radius: var(--radius-lg) 0 0 var(--radius-lg);
     }
 
     .kpi-label {
-        color: #64748b;
-        font-size: 12px;
-        font-weight: 750;
+        font-family: var(--font-mono);
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 500;
         text-transform: uppercase;
-        letter-spacing: .06em;
+        letter-spacing: .12em;
         margin-bottom: 10px;
+        padding-left: 12px;
     }
 
     .kpi-value {
-        font-size: 34px;
-        font-weight: 850;
-        color: #0f172a;
+        font-family: var(--font-display);
+        font-size: 38px;
+        font-weight: 800;
+        color: var(--text);
         letter-spacing: -0.03em;
+        line-height: 1;
+        padding-left: 12px;
     }
 
     .kpi-note {
         margin-top: 8px;
-        color: #64748b;
+        color: var(--muted);
         font-size: 12px;
-        font-weight: 500;
+        font-weight: 400;
+        padding-left: 12px;
     }
 
+    /* ─── SECTION HEADERS ─── */
     .section-header {
-        margin: 26px 0 12px;
-        font-size: 24px;
-        font-weight: 850;
-        letter-spacing: -0.03em;
-        color: #0f172a;
+        font-family: var(--font-display);
+        margin: 32px 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .section-header::before {
+        content: '';
+        display: inline-block;
+        width: 4px; height: 22px;
+        background: linear-gradient(180deg, var(--blue), var(--purple));
+        border-radius: 2px;
+        flex-shrink: 0;
     }
 
     .section-caption {
-        color: #64748b;
-        margin: -6px 0 14px;
-        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 18px;
+        font-size: 13.5px;
+        font-weight: 400;
+        padding-left: 14px;
     }
 
+    /* ─── PHASE CARDS ─── */
     .phase-card {
-        background: var(--card);
+        position: relative;
+        overflow: hidden;
+        background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 20px;
-        box-shadow: var(--shadow);
+        border-radius: var(--radius-lg);
+        padding: 22px 22px 20px;
+        box-shadow: var(--shadow-card);
+        transition: transform .2s, border-color .2s;
+    }
+
+    .phase-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--border2);
+    }
+
+    .phase-card::before {
+        content: '';
+        position: absolute;
+        top: -40px; right: -40px;
+        width: 120px; height: 120px;
+        border-radius: 50%;
+        opacity: 0.08;
+        pointer-events: none;
     }
 
     .phase-title {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         gap: 12px;
-        font-weight: 850;
-        font-size: 16px;
-        color: #0f172a;
+    }
+
+    .phase-name {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text);
+        letter-spacing: .01em;
     }
 
     .phase-percent {
-        font-size: 30px;
+        font-family: var(--font-display);
+        font-size: 36px;
+        font-weight: 800;
         letter-spacing: -0.04em;
+        line-height: 1;
     }
 
     .phase-sub {
-        color: #64748b;
-        font-size: 13px;
-        margin-top: 12px;
-        min-height: 34px;
+        color: var(--muted);
+        font-size: 12.5px;
+        margin-top: 14px;
+        min-height: 32px;
+        line-height: 1.5;
     }
 
     .bar-bg {
-        height: 12px;
-        background: #e2e8f0;
+        height: 6px;
+        background: rgba(255,255,255,0.07);
         border-radius: 999px;
         overflow: hidden;
-        margin-top: 14px;
+        margin-top: 16px;
     }
 
     .bar-fill {
-        height: 12px;
+        height: 6px;
         border-radius: 999px;
+        position: relative;
     }
 
+    .bar-fill::after {
+        content: '';
+        position: absolute;
+        right: 0; top: 0;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: inherit;
+        filter: brightness(1.5);
+    }
+
+    /* ─── CHART CARDS ─── */
     .chart-card {
-        background: var(--card);
+        background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 14px 14px 4px;
-        box-shadow: var(--shadow);
-        margin-bottom: 18px;
+        border-radius: var(--radius-lg);
+        padding: 20px 18px 8px;
+        box-shadow: var(--shadow-card);
+        margin-bottom: 20px;
     }
 
     .chart-title {
-        font-weight: 800;
-        font-size: 16px;
-        margin: 4px 6px 0;
-        color: #0f172a;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 15px;
+        margin: 0 0 4px 2px;
+        color: var(--text);
+        letter-spacing: .01em;
     }
 
-    .table-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 18px;
-        box-shadow: var(--shadow);
-        margin-top: 14px;
-    }
-
+    /* ─── DATAFRAME ─── */
     div[data-testid="stDataFrame"] {
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        overflow: hidden;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+        overflow: hidden !important;
+        background: var(--surface);
     }
 
-    .stAlert {
-        border-radius: 16px;
+    div[data-testid="stDataFrame"] table {
+        background: var(--surface) !important;
     }
 
-    button[kind="secondary"], .stDownloadButton button {
-        border-radius: 12px !important;
-    }
-
+    /* ─── TABS ─── */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid var(--border);
+        gap: 4px;
+        background: var(--surface) !important;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 4px;
+        width: fit-content;
+        margin-bottom: 20px;
     }
 
     .stTabs [data-baseweb="tab"] {
-        border-radius: 12px 12px 0 0;
-        padding: 10px 16px;
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-bottom: none;
+        border-radius: var(--radius-sm) !important;
+        padding: 10px 20px !important;
+        background: transparent !important;
+        border: none !important;
+        font-family: var(--font-body) !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+        color: var(--muted) !important;
+        transition: all .2s !important;
     }
+
+    .stTabs [aria-selected="true"] {
+        background: var(--surface2) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border2) !important;
+    }
+
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+
+    .stTabs [data-baseweb="tab-border"] {
+        display: none !important;
+    }
+
+    /* ─── ALERTS ─── */
+    .stAlert {
+        background: var(--surface2) !important;
+        border: 1px solid var(--border2) !important;
+        border-radius: var(--radius) !important;
+        color: var(--text) !important;
+    }
+
+    /* ─── DOWNLOAD BUTTON ─── */
+    .stDownloadButton button {
+        background: var(--surface2) !important;
+        border: 1px solid var(--border2) !important;
+        border-radius: var(--radius-sm) !important;
+        color: var(--text) !important;
+        font-family: var(--font-body) !important;
+        font-weight: 500 !important;
+        transition: all .2s !important;
+    }
+
+    .stDownloadButton button:hover {
+        border-color: var(--blue) !important;
+        background: var(--blue-glow) !important;
+        color: #60a5fa !important;
+    }
+
+    /* ─── MULTISELECT TAGS ─── */
+    [data-baseweb="tag"] {
+        background: var(--blue-glow) !important;
+        border: 1px solid rgba(59,130,246,.3) !important;
+        border-radius: 6px !important;
+    }
+
+    [data-baseweb="tag"] span {
+        color: #93c5fd !important;
+    }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* ─── DIVIDER ─── */
+    hr { border-color: var(--border) !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -584,12 +838,13 @@ def count_by_order(df: pd.DataFrame, col: str, order: Iterable[str]) -> pd.DataF
     return pd.concat([counts, extra], ignore_index=True)
 
 
-def render_kpi(label: str, value: str, note: str = "", accent: str = "#2563eb") -> None:
+def render_kpi(label: str, value: str, note: str = "", accent: str = "#3b82f6") -> None:
     st.markdown(
         f"""
-        <div class="kpi-card" style="border-top: 4px solid {accent};">
+        <div class="kpi-card">
+            <div class="kpi-accent" style="background: linear-gradient(180deg, {accent}, {accent}88);"></div>
             <div class="kpi-label">{html_escape(label)}</div>
-            <div class="kpi-value">{html_escape(value)}</div>
+            <div class="kpi-value" style="color: {accent};">{html_escape(value)}</div>
             <div class="kpi-note">{html_escape(note)}</div>
         </div>
         """,
@@ -600,12 +855,12 @@ def render_kpi(label: str, value: str, note: str = "", accent: str = "#2563eb") 
 def render_phase_card(title: str, value: float, subtitle: str, color: str) -> None:
     st.markdown(
         f"""
-        <div class="phase-card">
+        <div class="phase-card" style="border-top: 3px solid {color};">
             <div class="phase-title">
-                <span>{html_escape(title)}</span>
+                <span class="phase-name">{html_escape(title)}</span>
                 <span class="phase-percent" style="color:{color};">{value:.1f}%</span>
             </div>
-            <div class="bar-bg"><div class="bar-fill" style="width:{max(0, min(value, 100)):.1f}%; background:{color};"></div></div>
+            <div class="bar-bg"><div class="bar-fill" style="width:{max(0, min(value, 100)):.1f}%; background: linear-gradient(90deg, {color}88, {color});"></div></div>
             <div class="phase-sub">{html_escape(subtitle)}</div>
         </div>
         """,
@@ -627,11 +882,14 @@ def style_fig(fig: go.Figure, height: int = 360) -> go.Figure:
         margin=dict(l=24, r=24, t=30, b=24),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#0f172a", family="Inter, Segoe UI, sans-serif", size=13),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        font=dict(color="#9ca3af", family="Outfit, sans-serif", size=12),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            bgcolor="rgba(0,0,0,0)", font=dict(color="#9ca3af"),
+        ),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#e2e8f0", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0", zeroline=False)
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False, color="#6b7280")
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False, color="#6b7280")
     return fig
 
 
@@ -650,9 +908,9 @@ def pie_chart(df: pd.DataFrame, names: str, values: str, colors: dict[str, str] 
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-def bar_chart(df: pd.DataFrame, x: str, y: str, orientation: str = "v", color: str = "#2563eb", height: int = 360):
+def bar_chart(df: pd.DataFrame, x: str, y: str, orientation: str = "v", color: str = "#3b82f6", height: int = 360):
     fig = px.bar(df, x=x, y=y, orientation=orientation, text_auto=True)
-    fig.update_traces(marker_color=color, textfont_color="#0f172a")
+    fig.update_traces(marker_color=color, textfont_color="#9ca3af", marker_line_width=0)
     fig = style_fig(fig, height=height)
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
@@ -682,13 +940,14 @@ source_badge = "good" if "OneDrive" in source_name or "Graph" in source_name els
 st.markdown(
     f"""
     <div class="hero">
-        <div class="hero-title">Project Tracking Dashboard</div>
-        <div class="hero-subtitle">Cold Rooms, Cabinets & Refrigeration Projects — clean live view from Excel</div>
+        <div class="hero-eyebrow">Live Operations</div>
+        <div class="hero-title">Project Tracking <span>Dashboard</span></div>
+        <div class="hero-subtitle">Cold Rooms · Cabinets · Refrigeration Projects — live from Excel</div>
         <div class="source-row">
-            <span class="pill {source_badge}">● Current source: {html_escape(source_name)}</span>
-            <span class="pill blue">↻ Refresh: {REFRESH_SECONDS}s</span>
-            <span class="pill orange">Showing: {len(filtered)} / {len(df)} projects</span>
-            <span class="pill">Updated: {last_refresh_text}</span>
+            <span class="pill {source_badge}">● {html_escape(source_name)}</span>
+            <span class="pill blue">↻ {REFRESH_SECONDS}s refresh</span>
+            <span class="pill orange">◈ {len(filtered)} / {len(df)} projects</span>
+            <span class="pill">⊙ {last_refresh_text}</span>
         </div>
     </div>
     """,
@@ -698,17 +957,17 @@ st.markdown(
 # KPIs
 kpi_cols = st.columns(6)
 with kpi_cols[0]:
-    render_kpi("Total Projects", str(len(filtered)), "Projects in current view", "#2563eb")
+    render_kpi("Total Projects", str(len(filtered)), "Projects in current view", "#3b82f6")
 with kpi_cols[1]:
-    render_kpi("Completed", str(int((filtered["Status"] == "Completed").sum())), "Ready / closed", "#16a34a")
+    render_kpi("Completed", str(int((filtered["Status"] == "Completed").sum())), "Ready / closed", "#10b981")
 with kpi_cols[2]:
-    render_kpi("In Progress", str(int((filtered["Status"] == "In Progress").sum())), "Currently active", "#0284c7")
+    render_kpi("In Progress", str(int((filtered["Status"] == "In Progress").sum())), "Currently active", "#2dd4bf")
 with kpi_cols[3]:
-    render_kpi("On Hold", str(int((filtered["Status"] == "On Hold").sum())), "Needs attention", "#f97316")
+    render_kpi("On Hold", str(int((filtered["Status"] == "On Hold").sum())), "Needs attention", "#f59e0b")
 with kpi_cols[4]:
-    render_kpi("Not Started", str(int((filtered["Status"] == "Not Started").sum())), "Yet to begin", "#64748b")
+    render_kpi("Not Started", str(int((filtered["Status"] == "Not Started").sum())), "Yet to begin", "#6b7280")
 with kpi_cols[5]:
-    render_kpi("Avg Progress", pct(avg_progress), "Across current view", "#7c3aed")
+    render_kpi("Avg Progress", pct(avg_progress), "Across current view", "#a78bfa")
 
 # PHASE CARDS
 st.markdown('<div class="section-header">Phase Progress Overview</div>', unsafe_allow_html=True)
@@ -719,21 +978,21 @@ with phase_cols[0]:
         "Engineering",
         filtered["Engineering_Pct"].mean() if len(filtered) else 0,
         "Design / Submittal / Drawing / ELS / BOM",
-        "#2563eb",
+        "#3b82f6",
     )
 with phase_cols[1]:
     render_phase_card(
         "Delivery",
         filtered["Delivery_Pct"].mean() if len(filtered) else 0,
         f"Material delivery across {len(DELIVERY_COLS)} tracked items",
-        "#7c3aed",
+        "#a78bfa",
     )
 with phase_cols[2]:
     render_phase_card(
         "Execution",
         filtered["Execution_Pct"].mean() if len(filtered) else 0,
         "Site installation, commissioning and handover progress",
-        "#f97316",
+        "#f59e0b",
     )
 
 # TABS FOR READABILITY
@@ -760,13 +1019,13 @@ with tab_overview:
         add_chart_card_title("Region Breakdown")
         region_df = filtered["Region"].value_counts().reset_index()
         region_df.columns = ["Region", "Count"]
-        bar_chart(region_df, "Region", "Count", color="#2563eb", height=380)
+        bar_chart(region_df, "Region", "Count", color="#3b82f6", height=380)
         close_chart_card()
     with c5:
         add_chart_card_title("Top Customers")
         cust_df = filtered["Customer"].value_counts().head(10).reset_index()
         cust_df.columns = ["Customer", "Count"]
-        bar_chart(cust_df.sort_values("Count"), "Count", "Customer", orientation="h", color="#0f766e", height=380)
+        bar_chart(cust_df.sort_values("Count"), "Count", "Customer", orientation="h", color="#2dd4bf", height=380)
         close_chart_card()
 
 with tab_progress:
@@ -782,8 +1041,8 @@ with tab_progress:
             delivery_partial.append(int((vals == "PART.DONE").sum()))
         delivery_df = pd.DataFrame({"Item": DELIVERY_COLS, "Done": delivery_done, "Partial": delivery_partial})
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Done"], name="Done", marker_color="#16a34a"))
-        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Partial"], name="Partial", marker_color="#f59e0b"))
+        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Done"], name="Done", marker_color="#10b981", marker_line_width=0))
+        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Partial"], name="Partial", marker_color="#f59e0b", marker_line_width=0))
         fig.update_layout(barmode="stack")
         fig = style_fig(fig, height=420)
         fig.update_layout(margin=dict(l=20, r=20, t=20, b=110))
@@ -798,11 +1057,11 @@ with tab_progress:
         bucket_df = bucket.value_counts().reindex(labels, fill_value=0).reset_index()
         bucket_df.columns = ["Progress Bucket", "Count"]
         bucket_colors = {
-            "0-25%": "#dc2626",
-            "26-50%": "#f97316",
-            "51-75%": "#f59e0b",
-            "76-99%": "#2563eb",
-            "100%": "#16a34a",
+            "0-25%":  "#ef4444",
+            "26-50%": "#f59e0b",
+            "51-75%": "#eab308",
+            "76-99%": "#3b82f6",
+            "100%":   "#10b981",
         }
         pie_chart(bucket_df, "Progress Bucket", "Count", bucket_colors)
         close_chart_card()
@@ -810,9 +1069,9 @@ with tab_progress:
     add_chart_card_title("Phase Progress by Project")
     phase_df = filtered.sort_values("Overall_Progress", ascending=False).head(25)
     fig = go.Figure()
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Engineering_Pct"], name="Engineering", orientation="h", marker_color="#2563eb"))
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Delivery_Pct"], name="Delivery", orientation="h", marker_color="#7c3aed"))
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Execution_Pct"], name="Execution", orientation="h", marker_color="#f97316"))
+    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Engineering_Pct"], name="Engineering", orientation="h", marker_color="#3b82f6", marker_line_width=0))
+    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Delivery_Pct"], name="Delivery", orientation="h", marker_color="#a78bfa", marker_line_width=0))
+    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Execution_Pct"], name="Execution", orientation="h", marker_color="#f59e0b", marker_line_width=0))
     fig.update_layout(barmode="group", xaxis_title="Completion %", yaxis_title="", yaxis={"autorange": "reversed"})
     fig = style_fig(fig, height=720)
     fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), xaxis=dict(range=[0, 100]))
