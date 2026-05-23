@@ -1,8 +1,7 @@
-from __future__ import annotations
-
+import base64
+import re
 from io import BytesIO
-from pathlib import Path
-from typing import Iterable
+from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
@@ -11,14 +10,10 @@ import requests
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
-try:
-    import msal
-except Exception:
-    msal = None
 
-# -----------------------------------------------------------------------------
-# PAGE CONFIG
-# -----------------------------------------------------------------------------
+# -----------------------------
+# Page setup
+# -----------------------------
 st.set_page_config(
     page_title="Project Tracking Dashboard",
     page_icon="📊",
@@ -26,61 +21,373 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# -----------------------------------------------------------------------------
-# CONFIG
-# -----------------------------------------------------------------------------
-LOCAL_EXCEL_FILE = "Project_Tracking_v7.xlsx"
-SHEET_NAME = "Project_Master"
+
+# -----------------------------
+# Force same light UI everywhere
+# -----------------------------
+st.markdown(
+    """
+<style>
+:root {
+    color-scheme: light !important;
+}
+
+html, body, .stApp, [data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #f4f7fb 0%, #eef2ff 100%) !important;
+    color: #111827 !important;
+}
+
+[data-testid="stHeader"] {
+    background: #ffffff !important;
+}
+
+[data-testid="stToolbar"] {
+    background: #ffffff !important;
+}
+
+[data-testid="stSidebar"] {
+    background: #ffffff !important;
+    border-right: 1px solid #e5e7eb !important;
+}
+
+[data-testid="stSidebar"] * {
+    color: #111827 !important;
+}
+
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 1500px !important;
+}
+
+h1, h2, h3, h4, h5, h6, p, label, span, div {
+    color: #111827;
+}
+
+.main-hero {
+    background: #ffffff;
+    border: 1px solid #dbe3ef;
+    border-radius: 18px;
+    padding: 26px 28px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.main-hero h1 {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.main-hero .sub {
+    color: #475569;
+    margin-top: 10px;
+    font-size: 16px;
+}
+
+.pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.pill {
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid #dbe3ef;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.pill.green {
+    background: #ecfdf5;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.pill.blue {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.pill.orange {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+}
+
+.section-title {
+    font-size: 15px;
+    color: #475569;
+    margin: 22px 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+}
+
+.kpi-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #dbe3ef;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+    min-height: 135px;
+    border-top: 5px solid #2563eb;
+}
+
+.kpi-card.green { border-top-color: #16a34a; }
+.kpi-card.teal { border-top-color: #0891b2; }
+.kpi-card.orange { border-top-color: #f97316; }
+.kpi-card.gray { border-top-color: #64748b; }
+.kpi-card.purple { border-top-color: #7c3aed; }
+.kpi-card.red { border-top-color: #dc2626; }
+
+.kpi-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    font-weight: 800;
+}
+
+.kpi-value {
+    font-size: 34px;
+    margin-top: 16px;
+    font-weight: 850;
+    color: #0f172a;
+}
+
+.kpi-note {
+    font-size: 13px;
+    margin-top: 8px;
+    color: #64748b;
+}
+
+.phase-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #dbe3ef;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+    min-height: 160px;
+    border-top: 5px solid #2563eb;
+}
+
+.phase-card.del { border-top-color: #7c3aed; }
+.phase-card.exec { border-top-color: #f97316; }
+
+.phase-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.phase-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.phase-pct {
+    font-size: 32px;
+    font-weight: 850;
+    color: #111827;
+}
+
+.phase-bar-bg {
+    width: 100%;
+    height: 12px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 18px;
+}
+
+.phase-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.phase-card.del .phase-bar-fill {
+    background: linear-gradient(90deg, #7c3aed, #c084fc);
+}
+
+.phase-card.exec .phase-bar-fill {
+    background: linear-gradient(90deg, #f97316, #fb923c);
+}
+
+.phase-stats {
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.chart-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 18px;
+    border: 1px solid #dbe3ef;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+    margin-bottom: 18px;
+}
+
+.chart-title {
+    font-size: 18px;
+    font-weight: 850;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.chart-tag {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.badge-completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-progress {
+    background: #cffafe;
+    color: #155e75;
+}
+
+.badge-hold {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.badge-notstarted {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.badge-cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-high {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-medium {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.badge-low {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-delivered {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-partial {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.badge-ordered {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.badge-notordered {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+[data-testid="stDataFrame"] {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+}
+
+div[data-testid="stMultiSelect"] div {
+    color: #111827 !important;
+}
+
+div[data-baseweb="select"] > div {
+    background: #ffffff !important;
+    color: #111827 !important;
+}
+
+input {
+    background: #ffffff !important;
+    color: #111827 !important;
+}
+
+hr {
+    border-color: #dbe3ef;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
-def _secret(name: str, default: str = "") -> str:
-    try:
-        return str(st.secrets.get(name, default)).strip()
-    except Exception:
-        return default
+# -----------------------------
+# Auto refresh
+# -----------------------------
+REFRESH_SECONDS = int(st.secrets.get("REFRESH_SECONDS", 60))
+st_autorefresh(interval=REFRESH_SECONDS * 1000, key="dashboard_refresh")
 
 
-try:
-    REFRESH_SECONDS = int(_secret("REFRESH_SECONDS", "60") or 60)
-except Exception:
-    REFRESH_SECONDS = 60
-
-ENGINEERING_COLS = [
-    "Equi. DesigN",
-    "Technical Submittal",
-    "Drawing",
-    "ELS",
-    "BOM",
-]
-
-DELIVERY_COLS = [
-    "Out_Door",
-    "Indoor",
-    "CR Panels",
-    "CR Ins. Materials]",
-    "Doors",
-    "Ref. Inst. Materials",
-    "CCP",
-    "Display CCP",
-    "Floor Heater",
-    "Cabinets",
-    "Any Special",
-]
-
+# -----------------------------
+# Column mapping
+# Based on your Project_Master structure
+# -----------------------------
 BASE_COLUMNS = [
     "S_No",
-    "Date_Time",
+    "Unknown_1",
     "Job_Ref",
     "LPO_Ref",
     "Customer",
     "Project_Name",
     "Region",
     "Location",
-    "Payment_Terms",
-    *ENGINEERING_COLS,
-    *DELIVERY_COLS,
+    "Unknown_8",
+    "Equi_Design",
+    "Technical_Submittal",
+    "Drawing",
+    "ELS",
+    "BOM",
+    "Out_Door",
+    "Indoor",
+    "CR_Panels",
+    "CR_Ins_Materials",
+    "Doors",
+    "Ref_Inst_Materials",
+    "CCP",
+    "Display_CCP",
+    "Floor_Heater",
+    "Cabinets",
+    "Any_Special",
     "Work_Status",
-    "Remarks",
+    "Unknown_26",
     "Material_Status",
     "Overall_Progress",
     "Priority",
@@ -90,836 +397,770 @@ BASE_COLUMNS = [
     "Execution_Pct",
 ]
 
-STATUS_ORDER = ["Completed", "In Progress", "On Hold", "Not Started", "Cancelled"]
-MATERIAL_ORDER = ["Delivered", "Partially Delivered", "Ordered", "Not Ordered"]
-PRIORITY_ORDER = ["High", "Medium", "Low"]
+ENGINEERING_ITEMS = [
+    "Equi_Design",
+    "Technical_Submittal",
+    "Drawing",
+    "ELS",
+    "BOM",
+]
 
-STATUS_COLORS = {
+DELIVERY_ITEMS = [
+    "Out_Door",
+    "Indoor",
+    "CR_Panels",
+    "CR_Ins_Materials",
+    "Doors",
+    "Ref_Inst_Materials",
+    "CCP",
+    "Display_CCP",
+    "Floor_Heater",
+    "Cabinets",
+    "Any_Special",
+]
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+def clean_text(value, default=""):
+    if pd.isna(value):
+        return default
+    value = str(value).strip()
+    if value.lower() in ["nan", "none"]:
+        return default
+    return value
+
+
+def clean_status(value):
+    value = clean_text(value, "Not Started").strip().title()
+
+    replacements = {
+        "Inprogress": "In Progress",
+        "In-Progress": "In Progress",
+        "Onhold": "On Hold",
+        "On-Hold": "On Hold",
+        "Notstarted": "Not Started",
+        "Not-Started": "Not Started",
+    }
+
+    value = replacements.get(value, value)
+
+    allowed = ["Completed", "In Progress", "On Hold", "Not Started", "Cancelled"]
+    if value not in allowed:
+        return "Not Started"
+
+    return value
+
+
+def clean_material(value):
+    value = clean_text(value, "Not Ordered").strip().title()
+
+    replacements = {
+        "Partial": "Partially Delivered",
+        "Partial Delivered": "Partially Delivered",
+        "Partially Delivered": "Partially Delivered",
+        "Notordered": "Not Ordered",
+        "Not Ordered": "Not Ordered",
+    }
+
+    value = replacements.get(value, value)
+
+    allowed = ["Delivered", "Partially Delivered", "Ordered", "Not Ordered"]
+    if value not in allowed:
+        return "Not Ordered"
+
+    return value
+
+
+def clean_priority(value):
+    value = clean_text(value, "Medium").strip().title()
+
+    if value in ["High", "Medium", "Low"]:
+        return value
+
+    return "Medium"
+
+
+def status_badge(status):
+    status = clean_status(status)
+    cls = {
+        "Completed": "badge-completed",
+        "In Progress": "badge-progress",
+        "On Hold": "badge-hold",
+        "Not Started": "badge-notstarted",
+        "Cancelled": "badge-cancelled",
+    }.get(status, "badge-notstarted")
+    return f'<span class="badge {cls}">{status}</span>'
+
+
+def priority_badge(priority):
+    priority = clean_priority(priority)
+    cls = {
+        "High": "badge-high",
+        "Medium": "badge-medium",
+        "Low": "badge-low",
+    }.get(priority, "badge-medium")
+    return f'<span class="badge {cls}">{priority}</span>'
+
+
+def material_badge(material):
+    material = clean_material(material)
+    cls = {
+        "Delivered": "badge-delivered",
+        "Partially Delivered": "badge-partial",
+        "Ordered": "badge-ordered",
+        "Not Ordered": "badge-notordered",
+    }.get(material, "badge-notordered")
+    return f'<span class="badge {cls}">{material}</span>'
+
+
+def pct(value):
+    try:
+        return round(float(value), 1)
+    except Exception:
+        return 0.0
+
+
+def convert_onedrive_link(url):
+    """
+    Works for many personal OneDrive share links.
+    If direct download already works, it returns the same URL.
+    """
+    if not url:
+        return url
+
+    url = url.strip()
+
+    if "download=1" in url:
+        return url
+
+    if "1drv.ms" in url:
+        encoded = base64.urlsafe_b64encode(url.encode("utf-8")).decode("utf-8").rstrip("=")
+        return f"https://api.onedrive.com/v1.0/shares/u!{encoded}/root/content"
+
+    if "onedrive.live.com" in url and "download=1" not in url:
+        joiner = "&" if "?" in url else "?"
+        return f"{url}{joiner}download=1"
+
+    return url
+
+
+@st.cache_data(ttl=REFRESH_SECONDS)
+def download_excel_from_url(url):
+    final_url = convert_onedrive_link(url)
+    response = requests.get(final_url, timeout=45)
+    response.raise_for_status()
+    return response.content
+
+
+@st.cache_data(ttl=REFRESH_SECONDS)
+def parse_excel(file_bytes):
+    raw = pd.read_excel(
+        BytesIO(file_bytes),
+        sheet_name="Project_Master",
+        header=None,
+        engine="openpyxl",
+    )
+
+    raw = raw.iloc[:, : len(BASE_COLUMNS)].copy()
+    raw.columns = BASE_COLUMNS
+
+    df = raw.iloc[2:].copy()
+    df = df.dropna(how="all")
+    df = df[~(df["S_No"].isna() & df["Project_Name"].isna())].copy()
+
+    text_cols = [
+        "Job_Ref",
+        "LPO_Ref",
+        "Customer",
+        "Project_Name",
+        "Region",
+        "Location",
+        "Work_Status",
+    ]
+
+    for col in text_cols:
+        df[col] = df[col].apply(lambda x: clean_text(x, "Unknown"))
+
+    df["Customer"] = df["Customer"].replace("", "Unassigned")
+    df["Project_Name"] = df["Project_Name"].replace("", "Unnamed Project")
+    df["Region"] = df["Region"].replace("", "Unknown")
+    df["Location"] = df["Location"].replace("", "Unknown")
+
+    df["Status"] = df["Status"].apply(clean_status)
+    df["Material_Status"] = df["Material_Status"].apply(clean_material)
+    df["Priority"] = df["Priority"].apply(clean_priority)
+
+    for col in ["Overall_Progress", "Engineering_Pct", "Delivery_Pct", "Execution_Pct"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).clip(0, 100)
+
+    for col in ENGINEERING_ITEMS + DELIVERY_ITEMS:
+        df[col] = df[col].apply(lambda x: clean_text(x, ""))
+
+    df["Eng_Done"] = df[ENGINEERING_ITEMS].apply(lambda r: sum(v == "DONE" for v in r), axis=1)
+    df["Eng_Part"] = df[ENGINEERING_ITEMS].apply(lambda r: sum(v == "PART.DONE" for v in r), axis=1)
+    df["Eng_NA"] = df[ENGINEERING_ITEMS].apply(lambda r: sum(v == "N/A" for v in r), axis=1)
+
+    df["Del_Done"] = df[DELIVERY_ITEMS].apply(lambda r: sum(v == "DONE" for v in r), axis=1)
+    df["Del_Part"] = df[DELIVERY_ITEMS].apply(lambda r: sum(v == "PART.DONE" for v in r), axis=1)
+    df["Del_NA"] = df[DELIVERY_ITEMS].apply(lambda r: sum(v == "N/A" for v in r), axis=1)
+
+    return df.reset_index(drop=True)
+
+
+def load_data():
+    excel_url = st.secrets.get("EXCEL_FILE_URL", "")
+
+    if not excel_url:
+        st.error("No Excel source found. Add EXCEL_FILE_URL in Streamlit secrets.")
+        st.stop()
+
+    try:
+        file_bytes = download_excel_from_url(excel_url)
+        df = parse_excel(file_bytes)
+        return df, "OneDrive live Excel"
+    except Exception as e:
+        st.error(f"Could not load dashboard data: {e}")
+        st.stop()
+
+
+# -----------------------------
+# Chart helpers
+# -----------------------------
+CHART_COLORS = {
     "Completed": "#16a34a",
-    "In Progress": "#0284c7",
+    "In Progress": "#0891b2",
     "On Hold": "#f97316",
     "Not Started": "#64748b",
     "Cancelled": "#dc2626",
-}
-PRIORITY_COLORS = {"High": "#dc2626", "Medium": "#d97706", "Low": "#16a34a"}
-MATERIAL_COLORS = {
     "Delivered": "#16a34a",
-    "Partially Delivered": "#ca8a04",
-    "Ordered": "#2563eb",
-    "Not Ordered": "#64748b",
+    "Partially Delivered": "#eab308",
+    "Ordered": "#f97316",
+    "Not Ordered": "#dc2626",
+    "High": "#dc2626",
+    "Medium": "#eab308",
+    "Low": "#16a34a",
 }
 
-# -----------------------------------------------------------------------------
-# STYLE - LIGHT, READABLE, MANAGER-FRIENDLY
-# -----------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    :root {
-        --bg: #f5f7fb;
-        --card: #ffffff;
-        --text: #0f172a;
-        --muted: #64748b;
-        --border: #e2e8f0;
-        --blue: #2563eb;
-        --green: #16a34a;
-        --orange: #f97316;
-        --red: #dc2626;
-        --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    }
 
-    .stApp {
-        background: var(--bg);
-        color: var(--text);
-    }
-
-    .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 3rem;
-        max-width: 1500px;
-    }
-
-    h1, h2, h3, p, label, span, div {
-        color: var(--text);
-    }
-
-    [data-testid="stSidebar"] {
-        background: #ffffff;
-        border-right: 1px solid var(--border);
-    }
-
-    [data-testid="stSidebar"] * {
-        color: var(--text) !important;
-    }
-
-    [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"],
-    [data-testid="stSidebar"] .stTextInput input {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #0f172a !important;
-    }
-
-    .hero {
-        background: linear-gradient(135deg, #ffffff 0%, #eef4ff 100%);
-        border: 1px solid var(--border);
-        border-radius: 26px;
-        padding: 28px 32px;
-        box-shadow: var(--shadow);
-        margin-bottom: 18px;
-    }
-
-    .hero-title {
-        font-size: 42px;
-        font-weight: 850;
-        line-height: 1.1;
-        letter-spacing: -0.04em;
-        margin: 0;
-        color: #0f172a;
-    }
-
-    .hero-subtitle {
-        margin-top: 10px;
-        font-size: 16px;
-        color: #475569;
-        font-weight: 500;
-    }
-
-    .source-row {
-        margin-top: 18px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #f8fafc;
-        border: 1px solid #dbeafe;
-        color: #334155;
-        font-size: 13px;
-        font-weight: 650;
-    }
-
-    .pill.good { background: #ecfdf5; border-color: #bbf7d0; color: #166534; }
-    .pill.blue { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-    .pill.orange { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
-
-    .kpi-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 18px 18px 16px;
-        box-shadow: var(--shadow);
-        min-height: 126px;
-    }
-
-    .kpi-label {
-        color: #64748b;
-        font-size: 12px;
-        font-weight: 750;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        margin-bottom: 10px;
-    }
-
-    .kpi-value {
-        font-size: 34px;
-        font-weight: 850;
-        color: #0f172a;
-        letter-spacing: -0.03em;
-    }
-
-    .kpi-note {
-        margin-top: 8px;
-        color: #64748b;
-        font-size: 12px;
-        font-weight: 500;
-    }
-
-    .section-header {
-        margin: 26px 0 12px;
-        font-size: 24px;
-        font-weight: 850;
-        letter-spacing: -0.03em;
-        color: #0f172a;
-    }
-
-    .section-caption {
-        color: #64748b;
-        margin: -6px 0 14px;
-        font-size: 14px;
-    }
-
-    .phase-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 20px;
-        box-shadow: var(--shadow);
-    }
-
-    .phase-title {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        font-weight: 850;
-        font-size: 16px;
-        color: #0f172a;
-    }
-
-    .phase-percent {
-        font-size: 30px;
-        letter-spacing: -0.04em;
-    }
-
-    .phase-sub {
-        color: #64748b;
-        font-size: 13px;
-        margin-top: 12px;
-        min-height: 34px;
-    }
-
-    .bar-bg {
-        height: 12px;
-        background: #e2e8f0;
-        border-radius: 999px;
-        overflow: hidden;
-        margin-top: 14px;
-    }
-
-    .bar-fill {
-        height: 12px;
-        border-radius: 999px;
-    }
-
-    .chart-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 14px 14px 4px;
-        box-shadow: var(--shadow);
-        margin-bottom: 18px;
-    }
-
-    .chart-title {
-        font-weight: 800;
-        font-size: 16px;
-        margin: 4px 6px 0;
-        color: #0f172a;
-    }
-
-    .table-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 18px;
-        box-shadow: var(--shadow);
-        margin-top: 14px;
-    }
-
-    div[data-testid="stDataFrame"] {
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        overflow: hidden;
-    }
-
-    .stAlert {
-        border-radius: 16px;
-    }
-
-    button[kind="secondary"], .stDownloadButton button {
-        border-radius: 12px !important;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 12px 12px 0 0;
-        padding: 10px 16px;
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-bottom: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# -----------------------------------------------------------------------------
-# DATA SOURCE
-# -----------------------------------------------------------------------------
-
-def make_onedrive_download_url(url: str) -> str:
-    """Works for many OneDrive/SharePoint sharing links."""
-    url = url.strip()
-    if not url:
-        return url
-    if "download=1" in url:
-        return url
-    joiner = "&" if "?" in url else "?"
-    return f"{url}{joiner}download=1"
-
-
-@st.cache_data(ttl=REFRESH_SECONDS)
-def load_excel_from_direct_url(url: str) -> bytes:
-    direct_url = make_onedrive_download_url(url)
-    response = requests.get(direct_url, timeout=60, allow_redirects=True)
-    response.raise_for_status()
-    content_type = response.headers.get("content-type", "").lower()
-    if "text/html" in content_type and len(response.content) < 500_000:
-        raise RuntimeError(
-            "The OneDrive URL returned a web page, not the Excel file. "
-            "Use an Anyone-with-link share URL, direct download link, or Microsoft Graph mode."
-        )
-    return response.content
-
-
-@st.cache_data(ttl=REFRESH_SECONDS)
-def get_graph_token() -> str:
-    if msal is None:
-        raise RuntimeError("msal is not installed. Add msal to requirements.txt")
-
-    tenant_id = _secret("GRAPH_TENANT_ID") or _secret("TENANT_ID")
-    client_id = _secret("GRAPH_CLIENT_ID") or _secret("CLIENT_ID")
-    client_secret = _secret("GRAPH_CLIENT_SECRET") or _secret("CLIENT_SECRET")
-
-    if not all([tenant_id, client_id, client_secret]):
-        raise RuntimeError("Missing GRAPH_TENANT_ID, GRAPH_CLIENT_ID, or GRAPH_CLIENT_SECRET secrets.")
-
-    app = msal.ConfidentialClientApplication(
-        client_id=client_id,
-        authority=f"https://login.microsoftonline.com/{tenant_id}",
-        client_credential=client_secret,
-    )
-    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
-    if "access_token" not in result:
-        raise RuntimeError(f"Could not get Microsoft Graph token: {result}")
-    return result["access_token"]
-
-
-@st.cache_data(ttl=REFRESH_SECONDS)
-def load_excel_from_graph() -> bytes:
-    user_id = _secret("GRAPH_USER_ID")
-    file_path = _secret("ONEDRIVE_FILE_PATH")
-    if not user_id or not file_path:
-        raise RuntimeError("Missing GRAPH_USER_ID or ONEDRIVE_FILE_PATH secrets.")
-
-    token = get_graph_token()
-    if not file_path.startswith("/"):
-        file_path = "/" + file_path
-
-    url = f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/root:{file_path}:/content"
-    response = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=60)
-    response.raise_for_status()
-    return response.content
-
-
-def get_excel_bytes(uploaded_file) -> tuple[bytes, str]:
-    if uploaded_file is not None:
-        return uploaded_file.read(), uploaded_file.name
-
-    excel_url = _secret("EXCEL_FILE_URL")
-    if excel_url:
-        return load_excel_from_direct_url(excel_url), "OneDrive live Excel"
-
-    if _secret("GRAPH_USER_ID") and _secret("ONEDRIVE_FILE_PATH"):
-        return load_excel_from_graph(), "Microsoft Graph OneDrive"
-
-    local_path = Path(LOCAL_EXCEL_FILE)
-    if local_path.exists():
-        return local_path.read_bytes(), LOCAL_EXCEL_FILE
-
-    st.error(
-        "No Excel source found. Upload the workbook, set EXCEL_FILE_URL, "
-        "or configure Microsoft Graph secrets."
-    )
-    st.stop()
-
-# -----------------------------------------------------------------------------
-# PARSING
-# -----------------------------------------------------------------------------
-
-def _clean_text(value, default: str = "") -> str:
-    if pd.isna(value):
-        return default
-    text = str(value).strip()
-    return text if text else default
-
-
-def _clean_status(value: str) -> str:
-    value = _clean_text(value, "Not Started")
-    mapping = {
-        "completed": "Completed",
-        "complete": "Completed",
-        "in progress": "In Progress",
-        "on progress": "In Progress",
-        "progress": "In Progress",
-        "on hold": "On Hold",
-        "hold": "On Hold",
-        "cancelled": "Cancelled",
-        "canceled": "Cancelled",
-        "not started": "Not Started",
-        "notstart": "Not Started",
-    }
-    cleaned = mapping.get(value.lower(), value)
-    return cleaned if cleaned in STATUS_ORDER else "Not Started"
-
-
-def _clean_priority(value: str) -> str:
-    value = _clean_text(value, "Unspecified")
-    text = value.lower().strip()
-    if text in {"high", "h"}:
-        return "High"
-    if text in {"medium", "med", "m"}:
-        return "Medium"
-    if text in {"low", "l"}:
-        return "Low"
-    return "Unspecified"
-
-
-def _to_number(series: pd.Series) -> pd.Series:
-    return pd.to_numeric(series, errors="coerce").fillna(0)
-
-
-@st.cache_data(ttl=REFRESH_SECONDS)
-def parse_excel(file_bytes: bytes) -> pd.DataFrame:
-    raw = pd.read_excel(BytesIO(file_bytes), sheet_name=SHEET_NAME, header=None, engine="openpyxl")
-
-    # The workbook has title/group headers in row 0 and real column headers in row 1.
-    # We read by header name where possible so the dashboard does not break if a
-    # column is inserted in the Excel file. Fixed positions are used as a fallback.
-    header = raw.iloc[1].fillna("").astype(str).str.strip().tolist()
-    header_norm = [h.lower().replace(" ", "").replace("_", "") for h in header]
-
-    def find_col(names: list[str], fallback: int) -> int:
-        wanted = [n.lower().replace(" ", "").replace("_", "") for n in names]
-        for w in wanted:
-            if w in header_norm:
-                return header_norm.index(w)
-        return fallback
-
-    idx = {
-        "S_No": find_col(["S_No", "S No"], 0),
-        "Date_Time": find_col(["Date_Time", "Date Time"], 1),
-        "Job_Ref": find_col(["Job_Ref", "Job Ref"], 2),
-        "LPO_Ref": find_col(["LPO_Ref", "LPO Ref"], 3),
-        "Customer": find_col(["Customer"], 4),
-        "Project_Name": find_col(["Project_Name", "Project Name"], 5),
-        "Region": find_col(["Region"], 6),
-        "Location": find_col(["Location"], 7),
-        "Payment_Terms": find_col(["Payment Terms", "Payment_Terms"], 8),
-        "Work_Status": 25,
-        "Remarks": 26,
-        "Material_Status": 27,
-        "Overall_Progress": find_col(["Overall Progress %", "Overall Progress", "Progress"], 28),
-        "Priority": find_col(["Priority"], 29),
-        "Status": find_col(["Status"], 30),
-        "Engineering_Pct": find_col(["Engineering %", "Engineering%"], 31),
-        "Delivery_Pct": find_col(["Delivery%", "Delivery %"], 32),
-        "Execution_Pct": find_col(["Execution %", "Execution%"], 33),
-    }
-
-    rows = raw.iloc[2:].copy()
-    data = pd.DataFrame()
-    for col, i in idx.items():
-        data[col] = rows.iloc[:, i] if i < rows.shape[1] else None
-
-    for name, pos in zip(ENGINEERING_COLS, range(9, 14)):
-        data[name] = rows.iloc[:, pos] if pos < rows.shape[1] else ""
-    for name, pos in zip(DELIVERY_COLS, range(14, 25)):
-        data[name] = rows.iloc[:, pos] if pos < rows.shape[1] else ""
-
-    data = data.dropna(how="all")
-    data = data[~(data["S_No"].isna() & data["Project_Name"].isna())]
-
-    for col in ["Job_Ref", "LPO_Ref", "Customer", "Project_Name", "Region", "Location"]:
-        default = "Unknown" if col in ["Customer", "Region"] else ""
-        data[col] = data[col].apply(lambda x: _clean_text(x, default))
-
-    data["Material_Status"] = data["Material_Status"].apply(lambda x: _clean_text(x, "Not Ordered"))
-    # Keep material chart readable by grouping unexpected values.
-    data.loc[~data["Material_Status"].isin(MATERIAL_ORDER), "Material_Status"] = "Not Ordered"
-    data["Status"] = data["Status"].apply(_clean_status)
-    data["Priority"] = data["Priority"].apply(_clean_priority)
-    data["Work_Status"] = data["Work_Status"].apply(lambda x: _clean_text(x, ""))
-
-    for col in ["Overall_Progress", "Engineering_Pct", "Delivery_Pct", "Execution_Pct"]:
-        data[col] = _to_number(data[col]).clip(lower=0, upper=100)
-
-    for group_name, cols in [("Eng", ENGINEERING_COLS), ("Del", DELIVERY_COLS)]:
-        status_block = data[cols].fillna("").astype(str).apply(lambda s: s.str.strip().str.upper())
-        data[f"{group_name}_Done"] = (status_block == "DONE").sum(axis=1)
-        data[f"{group_name}_Partial"] = (status_block == "PART.DONE").sum(axis=1)
-        data[f"{group_name}_NA"] = (status_block == "N/A").sum(axis=1)
-
-    data["S_No"] = data["S_No"].fillna("").astype(str).str.replace(".0", "", regex=False)
-    return data.reset_index(drop=True)
-
-# -----------------------------------------------------------------------------
-# FILTERS
-# -----------------------------------------------------------------------------
-
-def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
-    with st.sidebar:
-        st.markdown("### Filters")
-        st.caption("Use these filters to focus the whole dashboard.")
-        search = st.text_input("Search", placeholder="Project, customer, location, job ref...")
-
-        quick = st.radio(
-            "Quick views",
-            ["All", "Completed", "In Progress", "On Hold", "Not Started"],
-            horizontal=False,
-        )
-
-        st.divider()
-        status = st.multiselect("Status", sorted(df["Status"].dropna().unique()), default=[])
-        region = st.multiselect("Region", sorted(df["Region"].dropna().unique()), default=[])
-        customer = st.multiselect("Customer", sorted(df["Customer"].dropna().unique()), default=[])
-        material = st.multiselect("Material", sorted(df["Material_Status"].dropna().unique()), default=[])
-        priority = st.multiselect("Priority", sorted(df["Priority"].dropna().unique()), default=[])
-
-        st.divider()
-        st.caption(f"Data refresh: every {REFRESH_SECONDS}s")
-
-    out = df.copy()
-    if quick != "All":
-        out = out[out["Status"] == quick]
-    if search:
-        text = search.lower().strip()
-        mask = (
-            out["Project_Name"].str.lower().str.contains(text, na=False)
-            | out["Customer"].str.lower().str.contains(text, na=False)
-            | out["Location"].str.lower().str.contains(text, na=False)
-            | out["Job_Ref"].astype(str).str.lower().str.contains(text, na=False)
-            | out["LPO_Ref"].astype(str).str.lower().str.contains(text, na=False)
-        )
-        out = out[mask]
-    if status:
-        out = out[out["Status"].isin(status)]
-    if region:
-        out = out[out["Region"].isin(region)]
-    if customer:
-        out = out[out["Customer"].isin(customer)]
-    if material:
-        out = out[out["Material_Status"].isin(material)]
-    if priority:
-        out = out[out["Priority"].isin(priority)]
-    return out
-
-# -----------------------------------------------------------------------------
-# UI HELPERS
-# -----------------------------------------------------------------------------
-
-def pct(value: float) -> str:
-    return f"{value:.1f}%"
-
-
-def html_escape(text: str) -> str:
-    return (
-        str(text)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-
-
-def count_by_order(df: pd.DataFrame, col: str, order: Iterable[str]) -> pd.DataFrame:
-    counts = df[col].value_counts().reindex(order, fill_value=0).reset_index()
-    counts.columns = [col, "Count"]
-    extra = df[~df[col].isin(order)][col].value_counts().reset_index()
-    extra.columns = [col, "Count"]
-    return pd.concat([counts, extra], ignore_index=True)
-
-
-def render_kpi(label: str, value: str, note: str = "", accent: str = "#2563eb") -> None:
-    st.markdown(
-        f"""
-        <div class="kpi-card" style="border-top: 4px solid {accent};">
-            <div class="kpi-label">{html_escape(label)}</div>
-            <div class="kpi-value">{html_escape(value)}</div>
-            <div class="kpi-note">{html_escape(note)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_phase_card(title: str, value: float, subtitle: str, color: str) -> None:
-    st.markdown(
-        f"""
-        <div class="phase-card">
-            <div class="phase-title">
-                <span>{html_escape(title)}</span>
-                <span class="phase-percent" style="color:{color};">{value:.1f}%</span>
-            </div>
-            <div class="bar-bg"><div class="bar-fill" style="width:{max(0, min(value, 100)):.1f}%; background:{color};"></div></div>
-            <div class="phase-sub">{html_escape(subtitle)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def add_chart_card_title(title: str) -> None:
-    st.markdown(f'<div class="chart-card"><div class="chart-title">{html_escape(title)}</div>', unsafe_allow_html=True)
-
-
-def close_chart_card() -> None:
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def style_fig(fig: go.Figure, height: int = 360) -> go.Figure:
+def chart_layout(fig, height=320, left=10, right=70):
     fig.update_layout(
+        template="plotly_white",
         height=height,
-        margin=dict(l=24, r=24, t=30, b=24),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#0f172a", family="Inter, Segoe UI, sans-serif", size=13),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=left, r=right, t=10, b=10),
+        showlegend=False,
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#111827", size=13),
+        xaxis=dict(
+            title=None,
+            showgrid=True,
+            gridcolor="#e5e7eb",
+            zeroline=False,
+        ),
+        yaxis=dict(
+            title=None,
+            autorange="reversed",
+        ),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#e2e8f0", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0", zeroline=False)
     return fig
 
 
-def readable_count_chart(
-    df: pd.DataFrame,
-    label_col: str,
-    count_col: str = "Count",
-    colors: dict[str, str] | None = None,
-    height: int = 300,
-):
-    """Simple horizontal count chart with count + percentage labels."""
-    chart_df = df.copy()
-    chart_df = chart_df[chart_df[count_col] > 0].copy()
-    if chart_df.empty:
-        st.info("No data for this view.")
-        return
-    total = chart_df[count_col].sum()
-    chart_df["Percent"] = chart_df[count_col] / total * 100
-    chart_df["Text"] = chart_df.apply(lambda r: f"{int(r[count_col])}  ({r['Percent']:.0f}%)", axis=1)
-    chart_df = chart_df.sort_values(count_col, ascending=True)
+def make_count_bar(df, column, order=None, height=310):
+    counts = (
+        df[column]
+        .fillna("Unknown")
+        .astype(str)
+        .str.strip()
+        .replace("", "Unknown")
+        .value_counts()
+        .reset_index()
+    )
 
-    color_values = [colors.get(str(v), "#64748b") if colors else "#2563eb" for v in chart_df[label_col]]
-    fig = go.Figure(
+    counts.columns = [column, "Count"]
+
+    if order:
+        counts[column] = pd.Categorical(counts[column], categories=order, ordered=True)
+        counts = counts.sort_values(column)
+        counts = counts[counts["Count"].notna()]
+
+    total = counts["Count"].sum()
+    counts["Percent"] = (counts["Count"] / total * 100).round(1)
+    counts["Label"] = counts["Count"].astype(str) + " (" + counts["Percent"].astype(str) + "%)"
+
+    fig = px.bar(
+        counts,
+        x="Count",
+        y=column,
+        orientation="h",
+        text="Label",
+        color=column,
+        color_discrete_map=CHART_COLORS,
+    )
+
+    fig.update_traces(
+        textposition="outside",
+        cliponaxis=False,
+        marker_line_width=0,
+    )
+
+    return chart_layout(fig, height=height, right=95)
+
+
+def make_top_bar(df, column, top_n=10, height=340, color="#2563eb"):
+    counts = (
+        df[column]
+        .fillna("Unknown")
+        .astype(str)
+        .str.strip()
+        .replace("", "Unknown")
+        .value_counts()
+        .head(top_n)
+        .reset_index()
+    )
+
+    counts.columns = [column, "Count"]
+
+    fig = px.bar(
+        counts,
+        x="Count",
+        y=column,
+        orientation="h",
+        text="Count",
+    )
+
+    fig.update_traces(
+        textposition="outside",
+        cliponaxis=False,
+        marker_color=color,
+    )
+
+    return chart_layout(fig, height=height, right=60)
+
+
+def make_delivery_items_chart(df):
+    rows = []
+
+    for col in DELIVERY_ITEMS:
+        label = col.replace("_", " ")
+        done = (df[col] == "DONE").sum()
+        part = (df[col] == "PART.DONE").sum()
+        not_done = (df[col] == "N.DONE").sum()
+
+        rows.append(
+            {
+                "Item": label,
+                "Done": done,
+                "Part Done": part,
+                "Not Done": not_done,
+            }
+        )
+
+    chart_df = pd.DataFrame(rows)
+
+    fig = go.Figure()
+    fig.add_trace(
         go.Bar(
-            x=chart_df[count_col],
-            y=chart_df[label_col],
+            y=chart_df["Item"],
+            x=chart_df["Done"],
             orientation="h",
-            text=chart_df["Text"],
+            name="Done",
+            marker_color="#16a34a",
+            text=chart_df["Done"],
             textposition="outside",
-            marker_color=color_values,
-            hovertemplate="%{y}: %{x}<extra></extra>",
+            cliponaxis=False,
         )
     )
-    max_count = max(float(chart_df[count_col].max()), 1)
-    fig = style_fig(fig, height=height)
-    fig.update_layout(showlegend=False, margin=dict(l=20, r=70, t=10, b=20))
-    fig.update_xaxes(range=[0, max_count * 1.22], title="Projects", dtick=1 if max_count <= 10 else None)
-    fig.update_yaxes(title="")
+    fig.add_trace(
+        go.Bar(
+            y=chart_df["Item"],
+            x=chart_df["Part Done"],
+            orientation="h",
+            name="Part Done",
+            marker_color="#eab308",
+            text=chart_df["Part Done"],
+            textposition="outside",
+            cliponaxis=False,
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            y=chart_df["Item"],
+            x=chart_df["Not Done"],
+            orientation="h",
+            name="Not Done",
+            marker_color="#dc2626",
+            text=chart_df["Not Done"],
+            textposition="outside",
+            cliponaxis=False,
+        )
+    )
+
+    fig.update_layout(
+        barmode="group",
+        template="plotly_white",
+        height=410,
+        margin=dict(l=10, r=70, t=10, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#111827", size=13),
+        xaxis=dict(title=None, showgrid=True, gridcolor="#e5e7eb", zeroline=False),
+        yaxis=dict(title=None, autorange="reversed"),
+    )
+
+    return fig
+
+
+def make_progress_bucket_chart(df):
+    bins = [0, 25, 50, 75, 90, 100]
+    labels = ["0-25%", "26-50%", "51-75%", "76-90%", "91-100%"]
+
+    bucket = pd.cut(
+        df["Overall_Progress"],
+        bins=bins,
+        labels=labels,
+        include_lowest=True,
+    )
+
+    counts = bucket.value_counts().reindex(labels).fillna(0).astype(int).reset_index()
+    counts.columns = ["Progress Bucket", "Count"]
+
+    fig = px.bar(
+        counts,
+        x="Count",
+        y="Progress Bucket",
+        orientation="h",
+        text="Count",
+    )
+
+    fig.update_traces(
+        marker_color="#7c3aed",
+        textposition="outside",
+        cliponaxis=False,
+    )
+
+    return chart_layout(fig, height=320, right=60)
+
+
+def make_phase_by_project_chart(df):
+    temp = df.sort_values("Overall_Progress", ascending=False).head(25).copy()
+
+    project_labels = temp["Project_Name"].astype(str).str.slice(0, 42)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            y=project_labels,
+            x=temp["Engineering_Pct"],
+            name="Engineering",
+            orientation="h",
+            marker_color="#2563eb",
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=project_labels,
+            x=temp["Delivery_Pct"],
+            name="Delivery",
+            orientation="h",
+            marker_color="#7c3aed",
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=project_labels,
+            x=temp["Execution_Pct"],
+            name="Execution",
+            orientation="h",
+            marker_color="#f97316",
+        )
+    )
+
+    fig.update_layout(
+        barmode="group",
+        template="plotly_white",
+        height=620,
+        margin=dict(l=10, r=40, t=10, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#111827", size=12),
+        xaxis=dict(
+            title=None,
+            range=[0, 105],
+            ticksuffix="%",
+            showgrid=True,
+            gridcolor="#e5e7eb",
+            zeroline=False,
+        ),
+        yaxis=dict(title=None, autorange="reversed"),
+    )
+
+    return fig
+
+
+def render_chart_card(title, fig, tag=None):
+    tag_html = f'<span class="chart-tag">{tag}</span>' if tag else ""
+    st.markdown(
+        f"""
+<div class="chart-card">
+    <div class="chart-title">{title} {tag_html}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-def progress_bucket_chart(bucket_df: pd.DataFrame, height: int = 300):
-    colors = {
-        "0-25%": "#dc2626",
-        "26-50%": "#f97316",
-        "51-75%": "#f59e0b",
-        "76-99%": "#2563eb",
-        "100%": "#16a34a",
-    }
-    readable_count_chart(bucket_df, "Progress Bucket", "Count", colors, height)
+def render_kpi(label, value, note, color_class=""):
+    st.markdown(
+        f"""
+<div class="kpi-card {color_class}">
+    <div class="kpi-label">{label}</div>
+    <div class="kpi-value">{value}</div>
+    <div class="kpi-note">{note}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
-def bar_chart(df: pd.DataFrame, x: str, y: str, orientation: str = "v", color: str = "#2563eb", height: int = 360):
-    fig = px.bar(df, x=x, y=y, orientation=orientation, text_auto=True)
-    fig.update_traces(marker_color=color, textfont_color="#0f172a")
-    fig = style_fig(fig, height=height)
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+def render_phase(title, avg_pct, done_label, color_class=""):
+    avg_pct = pct(avg_pct)
+    st.markdown(
+        f"""
+<div class="phase-card {color_class}">
+    <div class="phase-top">
+        <div class="phase-title">{title}</div>
+        <div class="phase-pct">{avg_pct:.1f}%</div>
+    </div>
+    <div class="phase-bar-bg">
+        <div class="phase-bar-fill" style="width:{avg_pct}%;"></div>
+    </div>
+    <div class="phase-stats">
+        <span>Average completion</span>
+        <strong>{done_label}</strong>
+    </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
-# -----------------------------------------------------------------------------
-# MAIN
-# -----------------------------------------------------------------------------
-st_autorefresh(interval=REFRESH_SECONDS * 1000, key="refresh")
 
-# Dashboard reads directly from the configured Excel source.
-# Manual upload section removed for manager-facing view.
-uploaded = None
+# -----------------------------
+# Load data
+# -----------------------------
+df, source_name = load_data()
 
-try:
-    file_bytes, source_name = get_excel_bytes(uploaded)
-    df = parse_excel(file_bytes)
-except Exception as exc:
-    st.error(f"Could not load dashboard data: {exc}")
-    st.stop()
 
-filtered = apply_filters(df)
+# -----------------------------
+# Sidebar filters
+# -----------------------------
+st.sidebar.title("Filters")
 
-# HERO
-avg_progress = filtered["Overall_Progress"].mean() if len(filtered) else 0
-last_refresh_text = pd.Timestamp.now().strftime("%d %b %Y, %I:%M %p")
-source_badge = "good" if "OneDrive" in source_name or "Graph" in source_name else "blue"
+search = st.sidebar.text_input("Search project, customer, location")
+
+quick_view = st.sidebar.radio(
+    "Quick Views",
+    ["All", "Completed", "In Progress", "On Hold", "Not Started"],
+)
+
+statuses = sorted(df["Status"].dropna().unique().tolist())
+regions = sorted(df["Region"].dropna().unique().tolist())
+customers = sorted(df["Customer"].dropna().unique().tolist())
+materials = sorted(df["Material_Status"].dropna().unique().tolist())
+priorities = ["High", "Medium", "Low"]
+
+selected_statuses = st.sidebar.multiselect("Status", statuses)
+selected_regions = st.sidebar.multiselect("Region", regions)
+selected_customers = st.sidebar.multiselect("Customer", customers)
+selected_materials = st.sidebar.multiselect("Material", materials)
+selected_priorities = st.sidebar.multiselect("Priority", priorities)
+
+filtered_df = df.copy()
+
+if quick_view != "All":
+    filtered_df = filtered_df[filtered_df["Status"] == quick_view]
+
+if search:
+    pattern = re.escape(search.strip())
+    mask = (
+        filtered_df["Project_Name"].astype(str).str.contains(pattern, case=False, na=False)
+        | filtered_df["Customer"].astype(str).str.contains(pattern, case=False, na=False)
+        | filtered_df["Location"].astype(str).str.contains(pattern, case=False, na=False)
+        | filtered_df["Region"].astype(str).str.contains(pattern, case=False, na=False)
+        | filtered_df["Job_Ref"].astype(str).str.contains(pattern, case=False, na=False)
+    )
+    filtered_df = filtered_df[mask]
+
+if selected_statuses:
+    filtered_df = filtered_df[filtered_df["Status"].isin(selected_statuses)]
+
+if selected_regions:
+    filtered_df = filtered_df[filtered_df["Region"].isin(selected_regions)]
+
+if selected_customers:
+    filtered_df = filtered_df[filtered_df["Customer"].isin(selected_customers)]
+
+if selected_materials:
+    filtered_df = filtered_df[filtered_df["Material_Status"].isin(selected_materials)]
+
+if selected_priorities:
+    filtered_df = filtered_df[filtered_df["Priority"].isin(selected_priorities)]
+
+
+# -----------------------------
+# Header
+# -----------------------------
+updated = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
 st.markdown(
     f"""
-    <div class="hero">
-        <div class="hero-title">Project Tracking Dashboard</div>
-        <div class="hero-subtitle">Cold Rooms, Cabinets & Refrigeration Projects — clean live view from Excel</div>
-        <div class="source-row">
-            <span class="pill {source_badge}">● Current source: {html_escape(source_name)}</span>
-            <span class="pill blue">↻ Refresh: {REFRESH_SECONDS}s</span>
-            <span class="pill orange">Showing: {len(filtered)} / {len(df)} projects</span>
-            <span class="pill">Updated: {last_refresh_text}</span>
-        </div>
+<div class="main-hero">
+    <h1>Project Tracking Dashboard</h1>
+    <div class="sub">Cold Rooms, Cabinets & Refrigeration Projects — Live view from Excel</div>
+    <div class="pill-row">
+        <div class="pill green">● Current source: {source_name}</div>
+        <div class="pill blue">↻ Refresh: {REFRESH_SECONDS}s</div>
+        <div class="pill orange">Showing: {len(filtered_df)} / {len(df)} projects</div>
+        <div class="pill">Updated: {updated}</div>
     </div>
-    """,
+</div>
+""",
     unsafe_allow_html=True,
 )
 
-# KPIs
-kpi_cols = st.columns(6)
-with kpi_cols[0]:
-    render_kpi("Total Projects", str(len(filtered)), "Projects in current view", "#2563eb")
-with kpi_cols[1]:
-    render_kpi("Completed", str(int((filtered["Status"] == "Completed").sum())), "Ready / closed", "#16a34a")
-with kpi_cols[2]:
-    render_kpi("In Progress", str(int((filtered["Status"] == "In Progress").sum())), "Currently active", "#0284c7")
-with kpi_cols[3]:
-    render_kpi("On Hold", str(int((filtered["Status"] == "On Hold").sum())), "Needs attention", "#f97316")
-with kpi_cols[4]:
-    render_kpi("Not Started", str(int((filtered["Status"] == "Not Started").sum())), "Yet to begin", "#64748b")
-with kpi_cols[5]:
-    render_kpi("Avg Progress", pct(avg_progress), "Across current view", "#7c3aed")
 
-# PHASE CARDS
-st.markdown('<div class="section-header">Phase Progress Overview</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-caption">Average completion by Engineering, Delivery and Execution phases.</div>', unsafe_allow_html=True)
-phase_cols = st.columns(3)
-with phase_cols[0]:
-    render_phase_card(
-        "Engineering",
-        filtered["Engineering_Pct"].mean() if len(filtered) else 0,
-        "Design / Submittal / Drawing / ELS / BOM",
-        "#2563eb",
+# -----------------------------
+# KPI cards
+# -----------------------------
+total_projects = len(filtered_df)
+completed = int((filtered_df["Status"] == "Completed").sum())
+in_progress = int((filtered_df["Status"] == "In Progress").sum())
+on_hold = int((filtered_df["Status"] == "On Hold").sum())
+not_started = int((filtered_df["Status"] == "Not Started").sum())
+avg_progress = filtered_df["Overall_Progress"].mean() if len(filtered_df) else 0
+
+k1, k2, k3, k4, k5, k6 = st.columns(6)
+
+with k1:
+    render_kpi("Total Projects", total_projects, "Projects in current view", "")
+with k2:
+    render_kpi("Completed", completed, "Ready / closed", "green")
+with k3:
+    render_kpi("In Progress", in_progress, "Currently active", "teal")
+with k4:
+    render_kpi("On Hold", on_hold, "Needs attention", "orange")
+with k5:
+    render_kpi("Not Started", not_started, "Yet to begin", "gray")
+with k6:
+    render_kpi("Avg Progress", f"{avg_progress:.1f}%", "Across current view", "purple")
+
+
+# -----------------------------
+# Phase cards
+# -----------------------------
+st.markdown('<div class="section-title">Phase Progress Overview</div>', unsafe_allow_html=True)
+
+p1, p2, p3 = st.columns(3)
+
+with p1:
+    eng_avg = filtered_df["Engineering_Pct"].mean() if len(filtered_df) else 0
+    eng_done = int(filtered_df["Eng_Done"].sum()) if len(filtered_df) else 0
+    render_phase("Engineering", eng_avg, f"{eng_done} items done", "")
+
+with p2:
+    del_avg = filtered_df["Delivery_Pct"].mean() if len(filtered_df) else 0
+    del_done = int(filtered_df["Del_Done"].sum()) if len(filtered_df) else 0
+    render_phase("Delivery", del_avg, f"{del_done} items done", "del")
+
+with p3:
+    exec_avg = filtered_df["Execution_Pct"].mean() if len(filtered_df) else 0
+    render_phase("Execution", exec_avg, "Site/work progress", "exec")
+
+
+# -----------------------------
+# Charts row 1
+# Same sections as given dashboard, readable chart type
+# -----------------------------
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    fig = make_count_bar(
+        filtered_df,
+        "Status",
+        order=["Completed", "In Progress", "On Hold", "Not Started", "Cancelled"],
     )
-with phase_cols[1]:
-    render_phase_card(
-        "Delivery",
-        filtered["Delivery_Pct"].mean() if len(filtered) else 0,
-        f"Material delivery across {len(DELIVERY_COLS)} tracked items",
-        "#7c3aed",
+    render_chart_card("Project Status", fig)
+
+with c2:
+    fig = make_count_bar(
+        filtered_df,
+        "Material_Status",
+        order=["Delivered", "Partially Delivered", "Ordered", "Not Ordered"],
     )
-with phase_cols[2]:
-    render_phase_card(
-        "Execution",
-        filtered["Execution_Pct"].mean() if len(filtered) else 0,
-        "Site installation, commissioning and handover progress",
-        "#f97316",
+    render_chart_card("Material Status", fig)
+
+with c3:
+    fig = make_count_bar(
+        filtered_df,
+        "Priority",
+        order=["High", "Medium", "Low"],
     )
+    render_chart_card("Priority", fig)
 
-# TABS FOR READABILITY
-tab_overview, tab_progress, tab_details = st.tabs(["Overview", "Progress Analysis", "Project Details"])
 
-with tab_overview:
-    st.markdown('<div class="section-header">Portfolio Overview</div>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        add_chart_card_title("Project Status")
-        st.caption("How many projects are completed, active, on hold, or not started.")
-        readable_count_chart(count_by_order(filtered, "Status", STATUS_ORDER), "Status", "Count", STATUS_COLORS, height=300)
-        close_chart_card()
-    with c2:
-        add_chart_card_title("Material Status")
-        st.caption("Material readiness by project count.")
-        readable_count_chart(count_by_order(filtered, "Material_Status", MATERIAL_ORDER), "Material_Status", "Count", MATERIAL_COLORS, height=300)
-        close_chart_card()
-    with c3:
-        add_chart_card_title("Priority")
-        st.caption("Only High, Medium and Low are shown; unknown values are grouped.")
-        priority_counts = count_by_order(filtered, "Priority", ["High", "Medium", "Low", "Unspecified"])
-        priority_colors = {**PRIORITY_COLORS, "Unspecified": "#94a3b8"}
-        readable_count_chart(priority_counts, "Priority", "Count", priority_colors, height=300)
-        close_chart_card()
+# -----------------------------
+# Charts row 2
+# -----------------------------
+c1, c2 = st.columns(2)
 
-    c4, c5 = st.columns(2)
-    with c4:
-        add_chart_card_title("Region Breakdown")
-        region_df = filtered["Region"].value_counts().reset_index()
-        region_df.columns = ["Region", "Count"]
-        readable_count_chart(region_df, "Region", "Count", height=360)
-        close_chart_card()
-    with c5:
-        add_chart_card_title("Top Customers")
-        cust_df = filtered["Customer"].value_counts().head(10).reset_index()
-        cust_df.columns = ["Customer", "Count"]
-        bar_chart(cust_df.sort_values("Count"), "Count", "Customer", orientation="h", color="#0f766e", height=380)
-        close_chart_card()
+with c1:
+    fig = make_top_bar(filtered_df, "Region", top_n=10, color="#0891b2")
+    render_chart_card("Region Breakdown", fig)
 
-with tab_progress:
-    st.markdown('<div class="section-header">Progress Analysis</div>', unsafe_allow_html=True)
-    c6, c7 = st.columns([7, 5])
-    with c6:
-        add_chart_card_title("Delivery Items Status")
-        delivery_done = []
-        delivery_partial = []
-        for col in DELIVERY_COLS:
-            vals = filtered[col].fillna("").astype(str).str.strip().str.upper()
-            delivery_done.append(int((vals == "DONE").sum()))
-            delivery_partial.append(int((vals == "PART.DONE").sum()))
-        delivery_df = pd.DataFrame({"Item": DELIVERY_COLS, "Done": delivery_done, "Partial": delivery_partial})
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Done"], name="Done", marker_color="#16a34a"))
-        fig.add_trace(go.Bar(x=delivery_df["Item"], y=delivery_df["Partial"], name="Partial", marker_color="#f59e0b"))
-        fig.update_layout(barmode="stack")
-        fig = style_fig(fig, height=420)
-        fig.update_layout(margin=dict(l=20, r=20, t=20, b=110))
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        close_chart_card()
+with c2:
+    fig = make_top_bar(filtered_df, "Customer", top_n=10, color="#2563eb")
+    render_chart_card("Top Customers", fig)
 
-    with c7:
-        add_chart_card_title("Overall Progress Buckets")
-        bins = [-0.1, 25, 50, 75, 99.999, 100]
-        labels = ["0-25%", "26-50%", "51-75%", "76-99%", "100%"]
-        bucket = pd.cut(filtered["Overall_Progress"], bins=bins, labels=labels)
-        bucket_df = bucket.value_counts().reindex(labels, fill_value=0).reset_index()
-        bucket_df.columns = ["Progress Bucket", "Count"]
-        bucket_colors = {
-            "0-25%": "#dc2626",
-            "26-50%": "#f97316",
-            "51-75%": "#f59e0b",
-            "76-99%": "#2563eb",
-            "100%": "#16a34a",
-        }
-        progress_bucket_chart(bucket_df, height=320)
-        close_chart_card()
 
-    add_chart_card_title("Phase Progress by Project")
-    phase_df = filtered.sort_values("Overall_Progress", ascending=False).head(25)
-    fig = go.Figure()
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Engineering_Pct"], name="Engineering", orientation="h", marker_color="#2563eb"))
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Delivery_Pct"], name="Delivery", orientation="h", marker_color="#7c3aed"))
-    fig.add_trace(go.Bar(y=phase_df["Project_Name"], x=phase_df["Execution_Pct"], name="Execution", orientation="h", marker_color="#f97316"))
-    fig.update_layout(barmode="group", xaxis_title="Completion %", yaxis_title="", yaxis={"autorange": "reversed"})
-    fig = style_fig(fig, height=720)
-    fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), xaxis=dict(range=[0, 100]))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    close_chart_card()
+# -----------------------------
+# Charts row 3
+# -----------------------------
+c1, c2 = st.columns([7, 5])
 
-with tab_details:
-    st.markdown('<div class="section-header">Project Details</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-caption">Sortable project list. Use the sidebar filters to reduce this table.</div>', unsafe_allow_html=True)
+with c1:
+    fig = make_delivery_items_chart(filtered_df)
+    render_chart_card("Delivery Items Status", fig, "DONE / PART DONE / NOT DONE across projects")
 
-    show_cols = [
+with c2:
+    fig = make_progress_bucket_chart(filtered_df)
+    render_chart_card("Overall Progress Buckets", fig)
+
+
+# -----------------------------
+# Phase by project
+# -----------------------------
+fig = make_phase_by_project_chart(filtered_df)
+render_chart_card(
+    "Phase Progress by Project",
+    fig,
+    "Engineering / Delivery / Execution — sorted by Overall %",
+)
+
+
+# -----------------------------
+# Project details table
+# -----------------------------
+st.markdown('<div class="section-title">Project Details</div>', unsafe_allow_html=True)
+
+table_df = filtered_df[
+    [
         "S_No",
         "Customer",
         "Project_Name",
@@ -934,37 +1175,24 @@ with tab_details:
         "Priority",
         "Work_Status",
     ]
-    table_df = filtered[show_cols].sort_values("Overall_Progress", ascending=False).copy()
-    table_df = table_df.rename(
-        columns={
-            "S_No": "#",
-            "Project_Name": "Project",
-            "Engineering_Pct": "Eng %",
-            "Delivery_Pct": "Delivery %",
-            "Execution_Pct": "Exec %",
-            "Overall_Progress": "Overall %",
-            "Material_Status": "Material",
-            "Work_Status": "Work Status",
-        }
-    )
+].copy()
 
-    st.dataframe(
-        table_df,
-        use_container_width=True,
-        hide_index=True,
-        height=650,
-        column_config={
-            "Eng %": st.column_config.ProgressColumn("Eng %", min_value=0, max_value=100, format="%.0f%%"),
-            "Delivery %": st.column_config.ProgressColumn("Delivery %", min_value=0, max_value=100, format="%.0f%%"),
-            "Exec %": st.column_config.ProgressColumn("Exec %", min_value=0, max_value=100, format="%.0f%%"),
-            "Overall %": st.column_config.ProgressColumn("Overall %", min_value=0, max_value=100, format="%.0f%%"),
-        },
-    )
+table_df = table_df.rename(
+    columns={
+        "S_No": "#",
+        "Project_Name": "Project",
+        "Engineering_Pct": "Eng %",
+        "Delivery_Pct": "Delivery %",
+        "Execution_Pct": "Exec %",
+        "Overall_Progress": "Overall %",
+        "Material_Status": "Material",
+        "Work_Status": "Work Status",
+    }
+)
 
-    csv = table_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download filtered project list as CSV",
-        data=csv,
-        file_name="filtered_project_dashboard.csv",
-        mime="text/csv",
-    )
+st.dataframe(
+    table_df,
+    use_container_width=True,
+    hide_index=True,
+    height=620,
+)
