@@ -470,7 +470,20 @@ def _clean_status(value: str) -> str:
         "not started": "Not Started",
         "notstart": "Not Started",
     }
-    return mapping.get(value.lower(), value)
+    cleaned = mapping.get(value.lower(), value)
+    return cleaned if cleaned in STATUS_ORDER else "Not Started"
+
+
+def _clean_priority(value: str) -> str:
+    value = _clean_text(value, "Unspecified")
+    text = value.lower().strip()
+    if text in {"high", "h"}:
+        return "High"
+    if text in {"medium", "med", "m"}:
+        return "Medium"
+    if text in {"low", "l"}:
+        return "Low"
+    return "Unspecified"
 
 
 def _to_number(series: pd.Series) -> pd.Series:
@@ -480,18 +493,63 @@ def _to_number(series: pd.Series) -> pd.Series:
 @st.cache_data(ttl=REFRESH_SECONDS)
 def parse_excel(file_bytes: bytes) -> pd.DataFrame:
     raw = pd.read_excel(BytesIO(file_bytes), sheet_name=SHEET_NAME, header=None, engine="openpyxl")
-    data = raw.iloc[2:, : len(BASE_COLUMNS)].copy()
-    data.columns = BASE_COLUMNS
+
+    # The workbook has title/group headers in row 0 and real column headers in row 1.
+    # We read by header name where possible so the dashboard does not break if a
+    # column is inserted in the Excel file. Fixed positions are used as a fallback.
+    header = raw.iloc[1].fillna("").astype(str).str.strip().tolist()
+    header_norm = [h.lower().replace(" ", "").replace("_", "") for h in header]
+
+    def find_col(names: list[str], fallback: int) -> int:
+        wanted = [n.lower().replace(" ", "").replace("_", "") for n in names]
+        for w in wanted:
+            if w in header_norm:
+                return header_norm.index(w)
+        return fallback
+
+    idx = {
+        "S_No": find_col(["S_No", "S No"], 0),
+        "Date_Time": find_col(["Date_Time", "Date Time"], 1),
+        "Job_Ref": find_col(["Job_Ref", "Job Ref"], 2),
+        "LPO_Ref": find_col(["LPO_Ref", "LPO Ref"], 3),
+        "Customer": find_col(["Customer"], 4),
+        "Project_Name": find_col(["Project_Name", "Project Name"], 5),
+        "Region": find_col(["Region"], 6),
+        "Location": find_col(["Location"], 7),
+        "Payment_Terms": find_col(["Payment Terms", "Payment_Terms"], 8),
+        "Work_Status": 25,
+        "Remarks": 26,
+        "Material_Status": 27,
+        "Overall_Progress": find_col(["Overall Progress %", "Overall Progress", "Progress"], 28),
+        "Priority": find_col(["Priority"], 29),
+        "Status": find_col(["Status"], 30),
+        "Engineering_Pct": find_col(["Engineering %", "Engineering%"], 31),
+        "Delivery_Pct": find_col(["Delivery%", "Delivery %"], 32),
+        "Execution_Pct": find_col(["Execution %", "Execution%"], 33),
+    }
+
+    rows = raw.iloc[2:].copy()
+    data = pd.DataFrame()
+    for col, i in idx.items():
+        data[col] = rows.iloc[:, i] if i < rows.shape[1] else None
+
+    for name, pos in zip(ENGINEERING_COLS, range(9, 14)):
+        data[name] = rows.iloc[:, pos] if pos < rows.shape[1] else ""
+    for name, pos in zip(DELIVERY_COLS, range(14, 25)):
+        data[name] = rows.iloc[:, pos] if pos < rows.shape[1] else ""
 
     data = data.dropna(how="all")
     data = data[~(data["S_No"].isna() & data["Project_Name"].isna())]
 
-    for col in ["Job_Ref", "LPO_Ref", "Customer", "Project_Name", "Region", "Location", "Priority"]:
+    for col in ["Job_Ref", "LPO_Ref", "Customer", "Project_Name", "Region", "Location"]:
         default = "Unknown" if col in ["Customer", "Region"] else ""
         data[col] = data[col].apply(lambda x: _clean_text(x, default))
 
     data["Material_Status"] = data["Material_Status"].apply(lambda x: _clean_text(x, "Not Ordered"))
+    # Keep material chart readable by grouping unexpected values.
+    data.loc[~data["Material_Status"].isin(MATERIAL_ORDER), "Material_Status"] = "Not Ordered"
     data["Status"] = data["Status"].apply(_clean_status)
+    data["Priority"] = data["Priority"].apply(_clean_priority)
     data["Work_Status"] = data["Work_Status"].apply(lambda x: _clean_text(x, ""))
 
     for col in ["Overall_Progress", "Engineering_Pct", "Delivery_Pct", "Execution_Pct"]:
@@ -504,7 +562,6 @@ def parse_excel(file_bytes: bytes) -> pd.DataFrame:
         data[f"{group_name}_NA"] = (status_block == "N/A").sum(axis=1)
 
     data["S_No"] = data["S_No"].fillna("").astype(str).str.replace(".0", "", regex=False)
-    data["Priority"] = data["Priority"].replace("", "Medium")
     return data.reset_index(drop=True)
 
 # -----------------------------------------------------------------------------
@@ -635,19 +692,53 @@ def style_fig(fig: go.Figure, height: int = 360) -> go.Figure:
     return fig
 
 
-def pie_chart(df: pd.DataFrame, names: str, values: str, colors: dict[str, str] | None = None):
-    color_sequence = None
-    if colors:
-        color_sequence = [colors.get(str(name), "#94a3b8") for name in df[names]]
-    fig = px.pie(df, names=names, values=values, hole=0.62, color_discrete_sequence=color_sequence)
-    fig.update_traces(
-        textposition="outside",
-        textinfo="percent+label",
-        marker=dict(line=dict(color="#ffffff", width=2)),
+def readable_count_chart(
+    df: pd.DataFrame,
+    label_col: str,
+    count_col: str = "Count",
+    colors: dict[str, str] | None = None,
+    height: int = 300,
+):
+    """Simple horizontal count chart with count + percentage labels."""
+    chart_df = df.copy()
+    chart_df = chart_df[chart_df[count_col] > 0].copy()
+    if chart_df.empty:
+        st.info("No data for this view.")
+        return
+    total = chart_df[count_col].sum()
+    chart_df["Percent"] = chart_df[count_col] / total * 100
+    chart_df["Text"] = chart_df.apply(lambda r: f"{int(r[count_col])}  ({r['Percent']:.0f}%)", axis=1)
+    chart_df = chart_df.sort_values(count_col, ascending=True)
+
+    color_values = [colors.get(str(v), "#64748b") if colors else "#2563eb" for v in chart_df[label_col]]
+    fig = go.Figure(
+        go.Bar(
+            x=chart_df[count_col],
+            y=chart_df[label_col],
+            orientation="h",
+            text=chart_df["Text"],
+            textposition="outside",
+            marker_color=color_values,
+            hovertemplate="%{y}: %{x}<extra></extra>",
+        )
     )
-    fig = style_fig(fig, height=340)
-    fig.update_layout(showlegend=False, margin=dict(l=20, r=20, t=10, b=10))
+    max_count = max(float(chart_df[count_col].max()), 1)
+    fig = style_fig(fig, height=height)
+    fig.update_layout(showlegend=False, margin=dict(l=20, r=70, t=10, b=20))
+    fig.update_xaxes(range=[0, max_count * 1.22], title="Projects", dtick=1 if max_count <= 10 else None)
+    fig.update_yaxes(title="")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
+def progress_bucket_chart(bucket_df: pd.DataFrame, height: int = 300):
+    colors = {
+        "0-25%": "#dc2626",
+        "26-50%": "#f97316",
+        "51-75%": "#f59e0b",
+        "76-99%": "#2563eb",
+        "100%": "#16a34a",
+    }
+    readable_count_chart(bucket_df, "Progress Bucket", "Count", colors, height)
 
 
 def bar_chart(df: pd.DataFrame, x: str, y: str, orientation: str = "v", color: str = "#2563eb", height: int = 360):
@@ -744,15 +835,20 @@ with tab_overview:
     c1, c2, c3 = st.columns(3)
     with c1:
         add_chart_card_title("Project Status")
-        pie_chart(count_by_order(filtered, "Status", STATUS_ORDER), "Status", "Count", STATUS_COLORS)
+        st.caption("How many projects are completed, active, on hold, or not started.")
+        readable_count_chart(count_by_order(filtered, "Status", STATUS_ORDER), "Status", "Count", STATUS_COLORS, height=300)
         close_chart_card()
     with c2:
         add_chart_card_title("Material Status")
-        pie_chart(count_by_order(filtered, "Material_Status", MATERIAL_ORDER), "Material_Status", "Count", MATERIAL_COLORS)
+        st.caption("Material readiness by project count.")
+        readable_count_chart(count_by_order(filtered, "Material_Status", MATERIAL_ORDER), "Material_Status", "Count", MATERIAL_COLORS, height=300)
         close_chart_card()
     with c3:
         add_chart_card_title("Priority")
-        pie_chart(count_by_order(filtered, "Priority", PRIORITY_ORDER), "Priority", "Count", PRIORITY_COLORS)
+        st.caption("Only High, Medium and Low are shown; unknown values are grouped.")
+        priority_counts = count_by_order(filtered, "Priority", ["High", "Medium", "Low", "Unspecified"])
+        priority_colors = {**PRIORITY_COLORS, "Unspecified": "#94a3b8"}
+        readable_count_chart(priority_counts, "Priority", "Count", priority_colors, height=300)
         close_chart_card()
 
     c4, c5 = st.columns(2)
@@ -760,7 +856,7 @@ with tab_overview:
         add_chart_card_title("Region Breakdown")
         region_df = filtered["Region"].value_counts().reset_index()
         region_df.columns = ["Region", "Count"]
-        bar_chart(region_df, "Region", "Count", color="#2563eb", height=380)
+        readable_count_chart(region_df, "Region", "Count", height=360)
         close_chart_card()
     with c5:
         add_chart_card_title("Top Customers")
@@ -804,7 +900,7 @@ with tab_progress:
             "76-99%": "#2563eb",
             "100%": "#16a34a",
         }
-        pie_chart(bucket_df, "Progress Bucket", "Count", bucket_colors)
+        progress_bucket_chart(bucket_df, height=320)
         close_chart_card()
 
     add_chart_card_title("Phase Progress by Project")
