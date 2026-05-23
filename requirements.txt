@@ -1,7 +1,6 @@
 streamlit
+streamlit-autorefresh
 pandas
 openpyxl
-plotly
 requests
-msal
-streamlit-autorefresh
+plotly
