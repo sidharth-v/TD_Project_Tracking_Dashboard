@@ -21,7 +21,7 @@ except Exception:
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Project Tracking Dashboard",
-    page_icon="📊",
+    page_icon=":bar_chart:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -152,7 +152,7 @@ st.markdown(
         --shadow-glow: 0 0 40px rgba(59,130,246,0.12);
     }
 
-    /* ─── GLOBAL ─── */
+    /* --- GLOBAL --- */
     .stApp {
         background: var(--bg);
         color: var(--text);
@@ -168,7 +168,7 @@ st.markdown(
     h1,h2,h3,h4,h5,h6 { font-family: var(--font-display); color: var(--text); }
     p, label, span, li { font-family: var(--font-body); color: var(--text); }
 
-    /* ─── SIDEBAR ─── */
+    /* --- SIDEBAR --- */
     [data-testid="stSidebar"] {
         background: var(--surface) !important;
         border-right: 1px solid var(--border2) !important;
@@ -213,7 +213,7 @@ st.markdown(
         background: var(--blue-glow);
     }
 
-    /* ─── HERO ─── */
+    /* --- HERO --- */
     .hero {
         position: relative;
         overflow: hidden;
@@ -316,7 +316,7 @@ st.markdown(
     .pill.blue  { background: var(--blue-glow);   border-color: rgba(59,130,246,.3);  color: #60a5fa; }
     .pill.orange{ background: var(--amber-glow);  border-color: rgba(245,158,11,.3);  color: #fbbf24; }
 
-    /* ─── KPI CARDS ─── */
+    /* --- KPI CARDS --- */
     .kpi-card {
         position: relative;
         overflow: hidden;
@@ -379,7 +379,7 @@ st.markdown(
         padding-left: 12px;
     }
 
-    /* ─── SECTION HEADERS ─── */
+    /* --- SECTION HEADERS --- */
     .section-header {
         font-family: var(--font-display);
         margin: 32px 0 6px;
@@ -409,7 +409,7 @@ st.markdown(
         padding-left: 14px;
     }
 
-    /* ─── PHASE CARDS ─── */
+    /* --- PHASE CARDS --- */
     .phase-card {
         position: relative;
         overflow: hidden;
@@ -491,7 +491,7 @@ st.markdown(
         filter: brightness(1.5);
     }
 
-    /* ─── CHART CARDS ─── */
+    /* --- CHART CARDS --- */
     .chart-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -510,7 +510,7 @@ st.markdown(
         letter-spacing: .01em;
     }
 
-    /* ─── DATAFRAME ─── */
+    /* --- DATAFRAME --- */
     div[data-testid="stDataFrame"] {
         border: 1px solid var(--border) !important;
         border-radius: var(--radius) !important;
@@ -522,7 +522,7 @@ st.markdown(
         background: var(--surface) !important;
     }
 
-    /* ─── TABS ─── */
+    /* --- TABS --- */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         background: var(--surface) !important;
@@ -559,7 +559,7 @@ st.markdown(
         display: none !important;
     }
 
-    /* ─── ALERTS ─── */
+    /* --- ALERTS --- */
     .stAlert {
         background: var(--surface2) !important;
         border: 1px solid var(--border2) !important;
@@ -567,7 +567,7 @@ st.markdown(
         color: var(--text) !important;
     }
 
-    /* ─── DOWNLOAD BUTTON ─── */
+    /* --- DOWNLOAD BUTTON --- */
     .stDownloadButton button {
         background: var(--surface2) !important;
         border: 1px solid var(--border2) !important;
@@ -584,7 +584,7 @@ st.markdown(
         color: #60a5fa !important;
     }
 
-    /* ─── MULTISELECT TAGS ─── */
+    /* --- MULTISELECT TAGS --- */
     [data-baseweb="tag"] {
         background: var(--blue-glow) !important;
         border: 1px solid rgba(59,130,246,.3) !important;
@@ -595,13 +595,13 @@ st.markdown(
         color: #93c5fd !important;
     }
 
-    /* ─── SCROLLBAR ─── */
+    /* --- SCROLLBAR --- */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-    /* ─── DIVIDER ─── */
+    /* --- DIVIDER --- */
     hr { border-color: var(--border) !important; }
     </style>
     """,
@@ -942,12 +942,12 @@ st.markdown(
     <div class="hero">
         <div class="hero-eyebrow">Live Operations</div>
         <div class="hero-title">Project Tracking <span>Dashboard</span></div>
-        <div class="hero-subtitle">Cold Rooms · Cabinets · Refrigeration Projects — live from Excel</div>
+        <div class="hero-subtitle">Cold Rooms &middot; Cabinets &middot; Refrigeration Projects — live from Excel</div>
         <div class="source-row">
-            <span class="pill {source_badge}">● {html_escape(source_name)}</span>
-            <span class="pill blue">↻ {REFRESH_SECONDS}s refresh</span>
-            <span class="pill orange">◈ {len(filtered)} / {len(df)} projects</span>
-            <span class="pill">⊙ {last_refresh_text}</span>
+            <span class="pill {source_badge}">&#9679; {html_escape(source_name)}</span>
+            <span class="pill blue">&#8635; {REFRESH_SECONDS}s refresh</span>
+            <span class="pill orange">&#9672; {len(filtered)} / {len(df)} projects</span>
+            <span class="pill">&#8857; {last_refresh_text}</span>
         </div>
     </div>
     """,
