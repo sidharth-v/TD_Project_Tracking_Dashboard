@@ -1,6 +1,0 @@
-streamlit
-streamlit-autorefresh
-pandas
-openpyxl
-requests
-plotly
